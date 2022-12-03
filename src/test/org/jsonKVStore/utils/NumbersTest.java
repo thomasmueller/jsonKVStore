@@ -58,7 +58,8 @@ public class NumbersTest {
     private String testBigDecimalToString(double x) {
         BigDecimal bd = BigDecimal.valueOf(x);
         String result = Numbers.decimalToString(bd);
-//        assertEquals(x, Numbers.stringToUnsignedLong(result));
+        BigDecimal test = Numbers.stringToDecimal(result);
+        assertTrue(bd.toString() + " " + test.toString(), bd.compareTo(test) == 0);
         return result;
     }
     
