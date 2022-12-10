@@ -25,7 +25,6 @@ import java.io.LineNumberReader;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.StringReader;
-import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -39,7 +38,6 @@ import java.util.Map;
  */
 public class Profiler implements Runnable {
 
-    private static Instrumentation instrumentation;
     private static final String LINE_SEPARATOR =
             System.getProperty("line.separator", "\n");
     private static final int MAX_ELEMENTS = 1000;
@@ -53,8 +51,7 @@ public class Profiler implements Runnable {
     private int pid;
 
     private final String[] ignoreLines = (
-            ""
-//            "java," +
+            "java" 
 //            "sun," +
 //            "com.sun.," +
 //            "com.google.common.," +
@@ -62,8 +59,7 @@ public class Profiler implements Runnable {
 //            "org.bson.,"
             ).split(",");
     private final String[] ignorePackages = (
-            ""
-//            "java," +
+            "java" 
 //            "sun," +
 //            "com.sun.," +
 //            "com.google.common.," +
@@ -71,18 +67,17 @@ public class Profiler implements Runnable {
 //            "org.bson"
             ).split(",");
     private final String[] ignoreThreads = (
-            ""
-//            "java.base@"
-//            "java.lang.Object.wait," +
-//            "java.lang.Thread.dumpThreads," +
-//            "java.lang.Thread.getThreads," +
-//            "java.lang.Thread.sleep," +
-//            "java.lang.UNIXProcess.waitForProcessExit," +
-//            "java.net.PlainDatagramSocketImpl.receive0," +
-//            "java.net.PlainSocketImpl.accept," +
-//            "java.net.PlainSocketImpl.socketAccept," +
-//            "java.net.SocketInputStream.socketRead," +
-//            "java.net.SocketOutputStream.socketWrite," +
+//            this.getClass().getCanonicalName() + "," +
+            "java.lang.Object.wait," +
+            "java.lang.Thread.dumpThreads," +
+            "java.lang.Thread.getThreads," +
+            "java.lang.Thread.sleep," +
+            "java.lang.UNIXProcess.waitForProcessExit," +
+            "java.net.PlainDatagramSocketImpl.receive0," +
+            "java.net.PlainSocketImpl.accept," +
+            "java.net.PlainSocketImpl.socketAccept," +
+            "java.net.SocketInputStream.socketRead," +
+            "java.net.SocketOutputStream.socketWrite"
 //            "org.eclipse.jetty.io.nio.SelectorManager$SelectSet.doSelect," +
 //            "sun.awt.windows.WToolkit.eventLoop," +
 //            "sun.misc.Unsafe.park," +
@@ -111,34 +106,15 @@ public class Profiler implements Runnable {
     private int threadDumps;
 
     /**
-     * This method is called when the agent is installed.
-     *
-     * @param agentArgs the agent arguments
-     * @param inst the instrumentation object
-     */
-    public static void premain(String agentArgs, Instrumentation inst) {
-        instrumentation = inst;
-    }
-
-    /**
-     * Get the instrumentation object if started as an agent.
-     *
-     * @return the instrumentation, or null
-     */
-    public static Instrumentation getInstrumentation() {
-        return instrumentation;
-    }
-
-    /**
      * Run the command line version of the profiler. The JDK (jps and jstack)
      * need to be in the path.
      *
      * @param args the process id of the process - if not set the java processes
      *        are listed
      */
-//    public static void main(String... args) {
-//        new Profiler().run(args);
-//    }
+    public static void main(String... args) {
+        new Profiler().run(args);
+    }
 
     private void run(String... args) {
         if (args.length == 0) {
@@ -268,6 +244,7 @@ public class Profiler implements Runnable {
                     break;
                 }
                 line = line.substring(3).trim();
+                line = removeModule(line);
                 stack.add(line);
             }
             if (stack.size() > 0) {
@@ -382,10 +359,20 @@ public class Profiler implements Runnable {
         threadDumps++;
         processList(list);
     }
+    
+    private static String removeModule(String s) {
+        int slash = s.lastIndexOf('/');
+        if (slash >= 0) {
+            s = s.substring(slash + 1);
+        }
+        return s;
+    }
 
     private void processList(List<Object[]> list) {
         for (Object[] dump : list) {
-            if (startsWithAny(dump[0].toString(), ignoreThreads)) {
+            String x = dump[0].toString();
+            x = removeModule(x);
+            if (startsWithAny(x, ignoreThreads)) {
                 continue;
             }
             StringBuilder buff = new StringBuilder();
@@ -394,6 +381,7 @@ public class Profiler implements Runnable {
             boolean packageCounts = false;
             for (int j = 0, i = 0; i < dump.length && j < depth; i++) {
                 String el = dump[i].toString();
+                el = removeModule(el);
                 if (!el.equals(last) && !startsWithAny(el, ignoreLines)) {
                     last = el;
                     buff.append("at ").append(el).append(LINE_SEPARATOR);
@@ -535,3 +523,4 @@ public class Profiler implements Runnable {
     }
 
 }
+

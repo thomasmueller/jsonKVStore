@@ -80,7 +80,7 @@ public class Session {
         return result;
     }
 
-    private static String getLongestPrefixOrNull(String key, Json json) {
+    private static String getPrefixOrNull(String key, Json json) {
         for (int len = 1; len <= key.length(); len++) {
             if (json.containsKey(key.substring(0, len) + MULTIPLE)) {
                 return key.substring(0, len) + MULTIPLE;
@@ -140,7 +140,7 @@ public class Session {
 //                // embedded object
 //                return file.getChildren().get(k);
 //            }
-            String prefix = getLongestPrefixOrNull(k, file);
+            String prefix = getPrefixOrNull(k, file);
             if (prefix == null) {
                 // not found
                 return null;
@@ -218,7 +218,7 @@ public class Session {
         for (String k : children) {
             // TODO actually children are never prefixes currently
             if (!isPrefix(k)) {
-                String prefix = getLongestPrefixOrNull(k, file);
+                String prefix = getPrefixOrNull(k, file);
                 if (prefix != null) {
                     Json value = file.removeChild(k);
                     if (file.containsProperty(prefix)) {
@@ -250,7 +250,7 @@ public class Session {
         for (String k : children) {
             // TODO actually children are never prefixes currently
             if (!isPrefix(k)) {
-                String prefix = getLongestPrefixOrNull(k, file);
+                String prefix = getPrefixOrNull(k, file);
                 if (prefix != null) {
                     Json value = file.removeChild(k);
                     if (file.containsProperty(prefix)) {
@@ -285,7 +285,7 @@ public class Session {
     }
     
     String getNextKey(String largerThan) {
-        return getNextKey(largerThan, ROOT_NAME, "");
+        return unescapeKey(getNextKey(escapeKey(largerThan), ROOT_NAME, ""));
     }
     
     private String getNextKey(String largerThan, String fileName, String prefix) {

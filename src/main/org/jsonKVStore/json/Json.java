@@ -74,7 +74,7 @@ public class Json {
     }
 
     
-    public void setPropertyString(String key, String value) {
+    public Json setPropertyString(String key, String value) {
         removeProperty(key);
         sizeInBytes += key.length();
 //        if (value == null) {
@@ -83,22 +83,25 @@ public class Json {
         value = JsonBuilder.encode(value);
         sizeInBytes += value.length();
         props.put(key, value);
+        return this;
     }
     
-    public void setPropertyLong(String key, long value) {
+    public Json setPropertyLong(String key, long value) {
         removeProperty(key);
         sizeInBytes += key.length();
         String v = "" + value;
         sizeInBytes += v.length();
         props.put(key, v);
+        return this;
     }
 
-    private void removeProperty(String key) {
+    private Json removeProperty(String key) {
         String old = props.remove(key);
         if (old != null) {
             sizeInBytes -= key.length();
             sizeInBytes -= old.length();
         }
+        return this;
     }
 
     /**
