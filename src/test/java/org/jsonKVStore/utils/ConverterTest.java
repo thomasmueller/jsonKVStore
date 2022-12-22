@@ -4,10 +4,44 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import org.junit.Test;
 
-public class NumbersTest {
+public class ConverterTest {
+
+    @Test(expected=IllegalArgumentException.class)
+    public void unquote() {
+        Converter.unquote("'");
+    }
+    
+    @Test
+    public void combineAndSplit() {
+        assertEquals("0/1/2", testCombine(List.of("0", "1", "2")));
+        assertEquals("'hello'/'joe''s'/3", testCombine(List.of("'hello'", "'joe''s'", "3")));
+        assertEquals("'joe''s'", testCombine(List.of("'joe''s'")));
+    }
+    
+    private static String testCombine(List<String> list) {
+        String result = Converter.combine(list);
+        List<String> split = Converter.split(result);
+        assertEquals(list.toString(), split.toString());
+        return result;
+    }
+    
+    
+    @Test
+    public void quote() {
+        assertEquals("''", testQuote(""));
+        assertEquals("''''", testQuote("'"));
+        assertEquals("'test'", testQuote("test"));
+    }
+    
+    private static String testQuote(String s) {
+        String result = Converter.quote(s);
+        assertEquals(s, Converter.unquote(result));
+        return result;
+    }
 
     @Test
     public void sortableLong() {
@@ -21,7 +55,7 @@ public class NumbersTest {
         assertEquals("f8000000000000000", testUnsignedLongToString(Long.MIN_VALUE));
         assertEquals("fffffffffffffffff", testUnsignedLongToString(-1));
         String last = "";
-        for(long x = 0; x > 0; x = (long) ((x * 1.1) + 1)) {
+        for(long x = 1; x > 0; x = (long) ((x * 11 / 10) + 1)) {
             String s = testUnsignedLongToString(x);
             assertTrue(s.compareTo(last) > 0);
             last = s;
@@ -29,8 +63,8 @@ public class NumbersTest {
     }
     
     private String testUnsignedLongToString(long x) {
-        String result = Numbers.unsignedLongToString(x);
-        assertEquals(x, Numbers.stringToUnsignedLong(result));
+        String result = Converter.unsignedLongToString(x);
+        assertEquals(x, Converter.stringToUnsignedLong(result));
         return result;
     }
     
@@ -57,35 +91,10 @@ public class NumbersTest {
     
     private String testBigDecimalToString(double x) {
         BigDecimal bd = BigDecimal.valueOf(x);
-        String result = Numbers.decimalToString(bd);
-        BigDecimal test = Numbers.stringToDecimal(result);
+        String result = Converter.decimalToString(bd);
+        BigDecimal test = Converter.stringToDecimal(result);
         assertTrue(bd.toString() + " " + test.toString(), bd.compareTo(test) == 0);
         return result;
     }
     
-//    @Test
-//    public void sortableDouble() {
-////        assertEquals("0000", testDoubleToString(0));
-////        assertEquals("0000", testDoubleToString(1));
-//        assertEquals("03c4000000000000", testDoubleToString(0xa));
-//        assertEquals("03ce000000000000", testDoubleToString(0xf));
-//        assertEquals("0400", testDoubleToString(0x10));
-//        assertEquals("09c1100000000000", testDoubleToString(0x222));
-//        assertEquals("13f00", testDoubleToString(Long.MAX_VALUE));
-//        assertEquals("-13fcfffffffffffff", testDoubleToString(Long.MIN_VALUE));
-//        assertEquals("-00cfffffffffffff", testDoubleToString(-1));
-//        String last = "";
-//        for(double x = 0; x < Double.POSITIVE_INFINITY; x = ((x * 1.1) + 1)) {
-//            String s = testDoubleToString(x);
-//            assertTrue(s.compareTo(last) > 0);
-//            last = s;
-//        }
-//    }
-//    
-//    private String testDoubleToString(double x) {
-//        String result = Numbers.doubleToString(x);
-//        double y = Numbers.stringToDouble(result);
-//        assertEquals(Double.doubleToRawLongBits(x), Double.doubleToRawLongBits(y));
-//        return result;
-//    }
 }

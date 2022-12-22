@@ -2,8 +2,55 @@ package org.jsonKVStore.utils;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Base64.Decoder;
+import java.util.Base64.Encoder;
+import java.util.List;
 
-public class Numbers {
+public class Converter {
+    
+    private static final Encoder BASE64_ENCODER = Base64.getEncoder();
+    private static final Decoder BASE64_DECODER = Base64.getDecoder();
+    
+    public static String combine(List<String> elements) {
+        StringBuilder buff = new StringBuilder();
+        for (int i = 0; i < elements.size(); i++) {
+            if (i > 0) {
+                buff.append('/');
+            }
+            buff.append(elements.get(i));
+        }
+        return buff.toString();
+    }
+    
+    public static List<String> split(String s) {
+        ArrayList<String> result = new ArrayList<>();
+        while (true) {
+            int end;
+            if (s.startsWith("\'")) {
+                end = findQuoteEnd(s);
+                String x = s.substring(0, end);
+                result.add(x);
+                if (end == s.length()) {
+                    break;
+                }
+            } else {
+                end = s.indexOf('/');
+                if (end < 0) {
+                    result.add(s);
+                    break;
+                } else {
+                    result.add(s.substring(0, end));
+                }
+            }
+            if (s.charAt(end) != '/') {
+                throw new IllegalArgumentException("Expected '/', got " + s);
+            }
+            s = s.substring(end + 1);
+        }
+        return result;
+    }
     
     public static String unsignedLongToString(long x) {
         String s = Long.toHexString(x);
@@ -15,42 +62,39 @@ public class Numbers {
         return Long.parseUnsignedLong(s.substring(1), 16);
     }
     
-//
-//    public static String doubleToString(double x) {
-//        long ieee754 = Double.doubleToRawLongBits(x);
-//        long sign = ieee754 >>> 63;
-//        ieee754 ^= sign << 63;
-//        long exponent = (ieee754 >> 52);
-//        ieee754 ^= exponent << 52;
-//        exponent -= 1023;
-//        long fraction = ieee754;
-//        if (sign != 0) {
-////            exponent ^= ((1L << 12) - 1);
-//            fraction ^= ((1L << 52) - 1);
-//        }
-//        String result = unsignedLongToString(exponent) + unsignedLongToString(fraction);
-//        return sign != 0 ? "-" + result : result;
-//    }
-//    
-//    public static double stringToDouble(String s) {
-//        int sign = 0;
-//        if (s.startsWith("-")) {
-//            s = s.substring(1);
-//            sign = 1;
-//        }
-//        int expLength = 1 + Integer.parseInt(s.substring(0, 1), 16);
-//        long exponent = Long.parseUnsignedLong(s.substring(1, 1 + expLength), 16);
-//        int fracLength = 1 + Integer.parseInt(s.substring(1 + expLength, 2 + expLength), 16);
-//        long fraction = Long.parseUnsignedLong(s.substring(2 + expLength, 2 + expLength + fracLength), 16);
-//        if (sign != 0) {
-////            exponent ^= ((1L << 12) - 1);
-//            fraction ^= ((1L << 52) - 1);
-//        }
-//        exponent += 1023;
-//        long ieee754 = ((long) sign << 63) | (exponent << 52) | fraction;
-//        return Double.longBitsToDouble(ieee754);
-//    }
-
+    public static String quote(String s) {
+        return "'" + s.replaceAll("'", "''") + "'";
+    }
+    
+    public static String unquote(String s) {
+        if (!s.startsWith("'") || !s.endsWith("'") || s.length() < 2) {
+            throw new IllegalArgumentException("Not wrapped in '': " + s);
+        }
+        s = s.substring(1, s.length() - 1); 
+        return s.replaceAll("''", "'");
+    }
+    
+    public static int findQuoteEnd(String s) {
+        if (!s.startsWith("'")) {
+            throw new IllegalArgumentException("Doesn't start with ': " + s);
+        }
+        int start = 1;
+        while (true) {
+            int index = s.indexOf('\'', start);
+            if (index < 0) {
+                throw new IllegalArgumentException("Doesn't end with ': " + s);
+            }
+            if (index >= s.length() - 1) {
+                return s.length();
+            }
+            if (s.charAt(index + 1) != '\'') {
+                return index + 1;
+            }
+            start = index + 2;
+        }
+    }
+    
+    
     // see https://svn.apache.org/repos/asf/jackrabbit/trunk/jackrabbit-core/src/main/java/org/apache/jackrabbit/core/query/lucene/DecimalField.java
     
     /**
@@ -143,4 +187,12 @@ public class Numbers {
         return String.valueOf(chars);
     }
     
+    public static String toBase64(byte[] data) {
+        return BASE64_ENCODER.encodeToString(data);
+    }
+
+    public static void fromBase64(String s, byte[] target) {
+        BASE64_DECODER.decode(s.getBytes(), target);
+    }
+
 }
