@@ -48,6 +48,7 @@ public class Json {
     }
     
     public long sizeInBytes() {
+        // TODO verify during testing, but disable otherwise
 //        return sizeInBytes;
         long result = 0;
         for(String k : props.keySet()) {
@@ -59,7 +60,7 @@ public class Json {
             result += children.get(k).sizeInBytes();
         }
         if (result != sizeInBytes) {
-            throw new AssertionError();
+            throw new AssertionError("Expected " + result + " got "+ sizeInBytes);
         }
         return result;
     }
@@ -77,9 +78,6 @@ public class Json {
     public Json setPropertyString(String key, String value) {
         removeProperty(key);
         sizeInBytes += key.length();
-//        if (value == null) {
-//            value = "null";
-//        }
         value = JsonBuilder.encode(value);
         sizeInBytes += value.length();
         props.put(key, value);
@@ -186,6 +184,10 @@ public class Json {
         result.props.putAll(props);
         result.sizeInBytes = sizeInBytes;
         return result;
+    }
+
+    public boolean isEmpty() {
+        return children.isEmpty() && props.isEmpty();
     }
 
 }

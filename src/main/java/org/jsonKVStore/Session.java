@@ -16,10 +16,13 @@
  */
 package org.jsonKVStore;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.jsonKVStore.json.Json;
+import org.jsonKVStore.store.MemoryStore;
 
 /*
 
@@ -51,21 +54,39 @@ public class Session {
     static final String ROOT_NAME = "root";
     private static final String MULTIPLE = "*";
 
-    final BlobStore store = new BlobStore();
+    final MemoryStore store;
     private final Cache<String, Json> cache = new Cache<>(MAX_CACHE_SIZE);
+    private final HashMap<String, Json> changes = new HashMap<>(MAX_CACHE_SIZE);
     private long updateId;
 
+    public Session() {
+        this(new MemoryStore());
+    }
+
+    public Session(MemoryStore store) {
+        this.store = store;
+    }
+
     void checkpoint() {
-        Json root = store.get(ROOT_NAME);
-        putFile(ROOT_NAME + "_" + updateId, root);
+        Json root = getFile(ROOT_NAME);
+        putChange(ROOT_NAME + "_" + updateId, root);
         updateId++;
+        flush();
         root = newJson(root);
-        putFile(ROOT_NAME, root);
+        putChange(ROOT_NAME, root);
+    }
+    
+    void flush() {
+        for(Entry<String, Json> e : changes.entrySet()) {
+            cache.put(e.getKey(), e.getValue());
+            store.put(e.getKey(), e.getValue());
+        }
+        changes.clear();
     }
 
     void init() {
         Json root = newJson();
-        store.put(ROOT_NAME, root);
+        putChange(ROOT_NAME, root);
     }
 
     private Json newJson(Json old) {
@@ -103,6 +124,9 @@ public class Session {
     }
 
     private static String unescapeKey(String key) {
+        if (key == null) {
+            return key;
+        }
         if (key.endsWith(" ")) {
             return key.substring(0, key.length() - 1);
         }
@@ -122,6 +146,9 @@ public class Session {
     }
 
     Json get(String key) {
+        if (key == null) {
+            throw new NullPointerException();
+        }        
         key = escapeKey(key);
         String fileName = ROOT_NAME;
         String k = key;
@@ -158,26 +185,45 @@ public class Session {
         }
     }
 
+    /**
+     * Put a value.
+     * Null is not supported; to remove an entry, use an empty Json object.
+     * 
+     * @param key the key
+     * @param value the value
+     */
     void put(String key, Json value) {
+        if (key == null) {
+            throw new NullPointerException();
+        }
+        if (value == null) {
+            throw new NullPointerException();
+        }
         key = escapeKey(key);
+        // ensure the client can't modify the value later
+        value = value.copy();
         put(ROOT_NAME, key, value);
     }
 
     private String put(String fileName, String key, Json value) {
         Json file = getFile(fileName);
-//        if (file.containsKey(key)) {
-//            file.removeKey(key);
-//        }
-        if (value == null) {
-            // TODO support remove
-            return fileName;
-        }
         if (file.getPropertyLong("update") < updateId) {
             fileName = store.newFileName();
             file = newJson(file);
-            putFile(fileName, file);
+            putChange(fileName, file);
         }
-        file.setChild(key, value);
+        if (value.isEmpty()) {
+            String prefix = getPrefixOrNull(key, file);
+            if (prefix == null) {
+                // not stored in a child: we remove the entry
+                file.removeChild(key);
+            } else {
+                file.setChild(key, value);
+            }
+        } else {
+            file.setChild(key, value);
+        }
+        putChange(fileName, file);
         splitOrMerge(fileName, file);
         return fileName;
     }
@@ -212,7 +258,7 @@ public class Session {
             // TODO merge if really small
             return;
         }
-//System.out.println("split " + fileName);        
+        putChange(fileName, file);        
         // move full keys to prefixes, if possible
         Set<String> children = new HashSet<>(file.getChildKeys());
         for (String k : children) {
@@ -242,10 +288,8 @@ public class Session {
         // try to create prefixes
         String longestPrefix = getLongestPrefix(children);
         String newFileName = store.newFileName();
-//System.out.println("split " + fileName + " -> " + newFileName);        
-        
         file.setPropertyString(longestPrefix, newFileName);
-        putFile(newFileName, newJson());
+        putChange(newFileName, newJson());
         children = new HashSet<>(file.getChildKeys());
         for (String k : children) {
             // TODO actually children are never prefixes currently
@@ -269,17 +313,21 @@ public class Session {
             }
         }
     }
-
-    private void putFile(String key, Json value) {
-        cache.put(key, value);
-        store.put(key, value);
+    
+    private void putChange(String key, Json value) {
+        changes.put(key, value);
+        cache.remove(key);
     }
 
     private Json getFile(String key) {
-        Json result = cache.get(key);
+        Json result = changes.get(key);
+        if (result != null) {
+            return result;
+        }
+        result = cache.get(key);
         if (result == null) {
             result = store.get(key);
-            cache.put(key, result);
+            cache.put(key, result.copy());
         }
         return result;
     }
@@ -318,5 +366,5 @@ public class Session {
         }
         return resultFromChildren;
     }
-
+    
 }
